@@ -2,39 +2,37 @@ version: "3.9"
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: { context: ./backend, dockerfile: Dockerfile }
     restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - ide_data:/data
-      - ./backend:/app
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    volumes: ["ide_data:/data"]
     environment:
       DATA_ROOT: /data
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-Yun_Yan+baili20130209}
-      ADMIN_USERNAME_AUTO_PROMOTE: ${ADMIN_USERNAME_AUTO_PROMOTE:-true}
+      ADMIN_USERNAME_AUTO_PROMOTE: ${ADMIN_USERNAME_AUTO_PROMOTE:-false}
       PYTHONUNBUFFERED: "1"
-    expose:
-      - "8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks: [appnet]
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: { context: ./frontend, dockerfile: Dockerfile }
     restart: unless-stopped
-    depends_on: [backend]
+    depends_on: { backend: { condition: service_healthy } }
+    expose: ["80"]
     networks: [appnet]
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    ports: ["80:80", "443:443"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -46,6 +44,5 @@ volumes:
   ide_data:
   caddy_data:
   caddy_config:
-
 networks:
   appnet:
