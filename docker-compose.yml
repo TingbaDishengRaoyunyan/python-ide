@@ -4,25 +4,34 @@ services:
   backend:
     build:
       context: ./backend
+      dockerfile: Dockerfile
     container_name: python-ide-backend
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - ./workspace:/workspace
       - ./backend:/app
     environment:
-      - WORKSPACE_ROOT=/workspace
-      - PYTHONUNBUFFERED=1
+      WORKSPACE_ROOT: /workspace
+      APP_PORT: 8000
+      PYTHONUNBUFFERED: "1"
     ports:
       - "8000:8000"
-    command: sh -c "python -m venv /workspace/.venv || true && /workspace/.venv/bin/pip install --upgrade pip && /workspace/.venv/bin/pip install -r /app/requirements.txt && /workspace/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: >
+      sh -c "python -m venv /workspace/.venv || true &&
+             /workspace/.venv/bin/pip install --upgrade pip &&
+             /workspace/.venv/bin/pip install -r /app/requirements.txt &&
+             /workspace/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
     container_name: python-ide-frontend
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "80:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
+    environment:
+      APP_ENV: ${APP_ENV:-production}
