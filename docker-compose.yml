@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: python-ide-backend
+    working_dir: /app
+    volumes:
+      - ./workspace:/workspace
+      - ./backend:/app
+    environment:
+      - WORKSPACE_ROOT=/workspace
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    command: sh -c "python -m venv /workspace/.venv || true && /workspace/.venv/bin/pip install --upgrade pip && /workspace/.venv/bin/pip install -r /app/requirements.txt && /workspace/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: python-ide-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro

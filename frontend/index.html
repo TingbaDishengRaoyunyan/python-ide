@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Python IDE</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>Python IDE</h2>
+        </div>
+        <div class="toolbar">
+          <button id="new-file-btn">New file</button>
+          <button id="new-folder-btn">New folder</button>
+          <button id="refresh-btn">Refresh</button>
+        </div>
+        <div id="file-tree" class="file-tree"></div>
+      </aside>
+
+      <main class="main-panel">
+        <div class="topbar">
+          <div class="path-label" id="path-label">/</div>
+          <div class="action-group">
+            <button id="save-btn">Save</button>
+            <button id="run-btn">Run</button>
+            <button id="pip-btn">pip install</button>
+          </div>
+        </div>
+        <div id="editor" class="editor"></div>
+        <div class="terminal-panel">
+          <div class="terminal-header">Output</div>
+          <pre id="terminal-output">Ready.</pre>
+        </div>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
