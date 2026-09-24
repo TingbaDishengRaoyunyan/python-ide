@@ -7,39 +7,61 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks: [private]
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
-    volumes: ["redis_data:/data"]
     networks: [private]
+    volumes:
+      - redis_data:/data
 
   api:
-    build: {context: ../backend}
+    build: { context: ../backend }
     restart: unless-stopped
-    read_only: true
     init: true
+    read_only: true
     tmpfs: [/tmp]
     environment:
       DATA_ROOT: /data
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+      WORKER_URL: http://worker:9000
+      WORKER_TOKEN: ${WORKER_TOKEN}
+      SESSION_SECRET: ${SESSION_SECRET}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_AUTO_PROMOTE: ${ADMIN_AUTO_PROMOTE:-false}
-      PACKAGE_MIRROR_URL: ${PACKAGE_MIRROR_URL:?Set PACKAGE_MIRROR_URL}
-    volumes: ["tenant_data:/data"]
+      ADMIN_AUTO_PROMOTE: ${ADMIN_AUTO_PROMOTE}
+      PACKAGE_MIRROR_URL: ${PACKAGE_MIRROR_URL}
+    volumes:
+      - tenant_data:/data
     expose: ["8000"]
-    depends_on: [postgres, redis]
-    security_opt: [no-new-privileges:true]
+    depends_on: [postgres, redis, worker]
     cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+
+  worker:
+    build: { context: ../worker }
+    restart: unless-stopped
+    environment:
+      WORKER_TOKEN: ${WORKER_TOKEN}
+    volumes:
+      - tenant_data:/data
+    expose: ["9000"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
     networks: [private]
 
   frontend:
-    build: {context: ../frontend}
+    build: { context: ../frontend }
     restart: unless-stopped
     expose: ["80"]
     depends_on: [api]
@@ -59,14 +81,18 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
-    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml:ro", "prometheus_data:/prometheus"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     networks: [private]
 
   grafana:
     image: grafana/grafana:11.2.0
     restart: unless-stopped
-    environment: {GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}}
-    volumes: ["grafana_data:/var/lib/grafana"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
     expose: ["3000"]
     networks: [private]
 
@@ -78,6 +104,7 @@ volumes:
   caddy_config: {}
   prometheus_data: {}
   grafana_data: {}
+
 networks:
   private:
     driver: bridge

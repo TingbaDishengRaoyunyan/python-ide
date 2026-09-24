@@ -1,22 +1,50 @@
-# Production cloud deployment template
+# Production deployment baseline for this IDE
 
-This directory is the production baseline for a public multi-tenant deployment. It deliberately separates the control plane from code execution:
+This project is now structured as a production control plane plus a dedicated execution worker.
 
-```text
-Internet -> Caddy/TLS -> frontend -> API/control plane -> runner
-                                      |             |
-                                      |             +-- disposable Kubernetes Job
-                                      +-- PostgreSQL/Redis/object storage (replace dev volumes)
+## High-level architecture
+
+- `frontend/` serves the IDE and admin UI.
+- `backend/` hosts the control plane, auth, tenant permissions, and file APIs.
+- `worker/` executes user code and pip installs in a separate service.
+- `deploy/` contains the public deployment automation and TLS config.
+
+## Core operational model
+
+- User accounts are stored in SQLite for the control plane and are subject to role + permission checks.
+- Files and workspaces are isolated by a username-derived workspace path.
+- The API calls the worker for script execution and pip installs.
+- Tests for service health and runner connectivity are configured in the deployment files.
+- The default owner/admin username is `Yun_Yan+baili20130209`.
+
+## Runtime requirements
+
+For the public cloud deployment template:
+
+- Docker Engine / Docker Compose
+- Public domain and DNS records
+- TLS-managed reverse proxy (Caddy)
+- Postgres + Redis for production state
+- Separate runner isolation for every trusted/public execution job
+- Package mirror / allowlisted package sources
+
+## Launch
+
+```bash
+chmod +x deploy/publish-production.sh
+./deploy/publish-production.sh
 ```
 
-## Required production controls
+Then review values in `.env` and the Caddy config before exposing the service publicly.
 
-- **Tenant isolation:** every request is authorized by tenant/user membership; never accept a workspace path from the client as an authorization decision.
-- **Per-execution isolation:** create one short-lived Job/Pod per run; do not execute untrusted code in the API container.
-- **Network egress:** runner Pods use the default-deny NetworkPolicy and only an explicit package mirror/API allowlist.
-- **Resources:** namespace quotas plus per-job CPU, memory, PID and timeout limits.
-- **Packages:** use the internal package proxy and allowlist package names/versions for public tenants.
-- **Audit:** append authentication, permission, package, run and admin events to an append-only sink.
-- **TLS/domain:** Caddy obtains certificates only after DNS and ports 80/443 are configured.
+## Security limits
 
-The Compose file is suitable for a single-server control-plane deployment. The Kubernetes manifests are the recommended execution boundary for untrusted public workloads.
+This is a strong control-plane baseline, but for hostile public workloads it must be expanded to:
+
+- one disposable Job/VM per execution,
+- default-deny network egress,
+- CPU/memory/PID/time limits,
+- seccomp/AppArmor or gVisor/Kata runtime,
+- allowlisted package sources,
+- append-only audit logs,
+- backups and secret rotation.

@@ -1,1 +1,88 @@
-<section id="auth-screen" class="auth-screen"><div class="auth-card"><h1>Python IDE</h1><input id="username" placeholder="Username"><input id="password" type="password" placeholder="Password"><button id="login-btn">Login</button><button id="register-btn">Register</button><pre id="auth-output"></pre></div></section><div id="app-shell" class="app-shell hidden"><aside class="sidebar"><h2>Python IDE</h2><span id="user-label"></span><button id="logout-btn">Logout</button><button id="admin-tab" class="hidden">Admin / Users</button><div id="file-tree"></div></aside><main class="main-panel"><div id="path-label">/</div><textarea id="editor"></textarea><pre id="terminal-output"></pre><section id="admin-panel" class="hidden"><h2>User permissions</h2><input id="user-search" placeholder="Search active users"><table><thead><tr><th>User</th><th>Role</th><th>Permissions</th><th>Action</th></tr></thead><tbody id="users-body"></tbody></table></section></main></div><script src="app.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Python IDE</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+  </head>
+  <body>
+    <section id="auth-screen" class="auth-screen">
+      <div class="auth-card">
+        <h1>Python IDE</h1>
+        <input id="username" placeholder="Username" autocomplete="username" />
+        <input id="password" type="password" placeholder="Password (8+ chars)" autocomplete="current-password" />
+        <div class="auth-actions">
+          <button id="login-btn">Login</button>
+          <button id="register-btn">Register</button>
+        </div>
+        <pre id="auth-output"></pre>
+      </div>
+    </section>
+
+    <div id="app-shell" class="app-shell hidden">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>Python IDE</h2>
+          <span id="user-label"></span>
+          <button id="logout-btn">Logout</button>
+        </div>
+
+        <nav class="nav-tabs">
+          <button id="ide-tab" class="tab active">IDE</button>
+          <button id="admin-tab" class="tab hidden">Admin</button>
+        </nav>
+
+        <div id="ide-panel">
+          <div class="toolbar">
+            <button id="new-file-btn">New file</button>
+            <button id="new-folder-btn">New folder</button>
+            <button id="refresh-btn">Refresh</button>
+          </div>
+          <div id="file-tree" class="file-tree"></div>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <div class="topbar">
+          <div id="path-label">/</div>
+          <div class="action-group">
+            <button id="save-btn">Save</button>
+            <button id="run-btn">Run</button>
+            <button id="pip-btn">pip install</button>
+          </div>
+        </div>
+
+        <div id="editor" class="editor"></div>
+
+        <div class="terminal-panel">
+          <div class="terminal-header">Output</div>
+          <pre id="terminal-output">Ready.</pre>
+        </div>
+
+        <section id="admin-panel" class="admin-panel hidden">
+          <h2>Administration</h2>
+          <div class="overview cards" id="overview"></div>
+          <div class="user-search-row">
+            <input id="user-search" placeholder="Search users by username" />
+            <button id="reload-users">Refresh</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Permissions</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
