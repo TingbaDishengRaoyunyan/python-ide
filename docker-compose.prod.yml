@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ide_data:/data
+      - ./backend:/app
+    environment:
+      DATA_ROOT: /data
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-Yun_Yan+baili20130209}
+      ADMIN_USERNAME_AUTO_PROMOTE: ${ADMIN_USERNAME_AUTO_PROMOTE:-true}
+      PYTHONUNBUFFERED: "1"
+    expose:
+      - "8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    networks: [appnet]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on: [backend]
+    networks: [appnet]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend]
+    networks: [appnet]
+
+volumes:
+  ide_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  appnet:
