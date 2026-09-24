@@ -1,0 +1,83 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    networks: [private]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes: ["redis_data:/data"]
+    networks: [private]
+
+  api:
+    build: {context: ../backend}
+    restart: unless-stopped
+    read_only: true
+    init: true
+    tmpfs: [/tmp]
+    environment:
+      DATA_ROOT: /data
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_AUTO_PROMOTE: ${ADMIN_AUTO_PROMOTE:-false}
+      PACKAGE_MIRROR_URL: ${PACKAGE_MIRROR_URL:?Set PACKAGE_MIRROR_URL}
+    volumes: ["tenant_data:/data"]
+    expose: ["8000"]
+    depends_on: [postgres, redis]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [private]
+
+  frontend:
+    build: {context: ../frontend}
+    restart: unless-stopped
+    expose: ["80"]
+    depends_on: [api]
+    networks: [private]
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend]
+    networks: [private]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml:ro", "prometheus_data:/prometheus"]
+    networks: [private]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    environment: {GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}}
+    volumes: ["grafana_data:/var/lib/grafana"]
+    expose: ["3000"]
+    networks: [private]
+
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  tenant_data: {}
+  caddy_data: {}
+  caddy_config: {}
+  prometheus_data: {}
+  grafana_data: {}
+networks:
+  private:
+    driver: bridge
