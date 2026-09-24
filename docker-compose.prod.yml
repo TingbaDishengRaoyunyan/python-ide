@@ -1,48 +1,46 @@
 version: "3.9"
-
 services:
   backend:
-    build: { context: ./backend, dockerfile: Dockerfile }
+    build: {context: ./backend}
     restart: unless-stopped
-    init: true
-    read_only: true
-    tmpfs: [/tmp]
-    volumes: ["ide_data:/data"]
     environment:
       DATA_ROOT: /data
+      WORKER_URL: http://worker:9000
+      WORKER_TOKEN: ${WORKER_TOKEN:?Set WORKER_TOKEN in .env}
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-Yun_Yan+baili20130209}
-      ADMIN_USERNAME_AUTO_PROMOTE: ${ADMIN_USERNAME_AUTO_PROMOTE:-false}
-      PYTHONUNBUFFERED: "1"
+      ADMIN_AUTO_PROMOTE: ${ADMIN_AUTO_PROMOTE:-false}
+    volumes: ["ide_data:/data"]
     expose: ["8000"]
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    networks: [appnet]
-
-  frontend:
-    build: { context: ./frontend, dockerfile: Dockerfile }
+    depends_on: {worker: {condition: service_healthy}}
+    networks: [private]
+  worker:
+    build: {context: ./worker}
     restart: unless-stopped
-    depends_on: { backend: { condition: service_healthy } }
+    environment: {WORKER_TOKEN: ${WORKER_TOKEN:?Set WORKER_TOKEN in .env}}
+    volumes: ["ide_data:/data"]
+    expose: ["9000"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 128
+    healthcheck: {test: ["CMD","python","-c","import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health')"], interval: 20s, timeout: 5s, retries: 5}
+    networks: [private]
+  frontend:
+    build: {context: ./frontend}
+    restart: unless-stopped
+    depends_on: [backend]
     expose: ["80"]
-    networks: [appnet]
-
+    networks: [private]
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+    ports: ["80:80","443:443"]
+    volumes: ["./deploy/Caddyfile:/etc/caddy/Caddyfile:ro","caddy_data:/data","caddy_config:/config"]
     depends_on: [frontend]
-    networks: [appnet]
-
-volumes:
-  ide_data:
-  caddy_data:
-  caddy_config:
-networks:
-  appnet:
+    networks: [private]
+volumes: {ide_data: {}, caddy_data: {}, caddy_config: {}}
+networks: {private: {driver: bridge, internal: false}}

@@ -1,57 +1,21 @@
-# Complete deployment
+# Tenant, worker, GPU and user-management deployment
 
-## 1. Server preparation
+This release adds per-user tenant workspaces, a private execution worker, role/permission administration, user search, and a GPU runtime profile.
 
-Use Ubuntu 22.04/24.04 with Docker Engine and the Compose plugin. Open TCP ports 80 and 443 and point your domain's DNS record to the server.
-
-## 2. Configure secrets and domain
+## Launch
 
 ```bash
 cp deploy/.env.production.example .env
-sed -i "s#replace-with-output-of-openssl-rand-hex-32#$(openssl rand -hex 32)#" .env
-# Edit deploy/Caddyfile and replace ide.example.com
+# set SESSION_SECRET, WORKER_TOKEN and DOMAIN
+deploy/publish.sh
 ```
 
-Keep `.env` private. Do not commit it.
+The admin panel searches users by username as you type. Administrators can set roles and individual permissions: `ide`, `run`, `pip`, `gpu`, `manage_users`, and `manage_roles`.
 
-## 3. Start
+## GPU
 
-```bash
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
-docker compose -f docker-compose.prod.yml ps
-```
+`runtimes/gpu/Dockerfile` and `docker-compose.gpu.yml` provide a CUDA/PyTorch smoke-test profile. Install NVIDIA drivers and NVIDIA Container Toolkit first. A production GPU scheduler should assign GPUs per job; this profile does not automatically grant hardware access to users.
 
-Caddy will request and renew the certificate automatically after DNS and ports are correct.
+## Security boundary
 
-## 4. Create the administrator
-
-`ADMIN_USERNAME_AUTO_PROMOTE=false` is intentional: it prevents an attacker from racing to register the reserved administrator name. Create the account over the private deployment URL or temporarily set the variable to `true`, register `Yun_Yan+baili20130209` with a strong password, then set it back to `false` and recreate the backend.
-
-```bash
-# after the admin has been created, leave this disabled
-ADMIN_USERNAME_AUTO_PROMOTE=false
-```
-
-The username is configurable, but the default reserved administrator is exactly:
-
-```text
-Yun_Yan+baili20130209
-```
-
-## 5. Operations
-
-```bash
-docker compose -f docker-compose.prod.yml logs -f backend
-docker compose -f docker-compose.prod.yml restart
-docker compose -f docker-compose.prod.yml pull
-```
-
-The `ide_data` volume contains the SQLite database and per-user workspaces. Back it up before upgrades:
-
-```bash
-docker run --rm -v python-ide_ide_data:/data -v "$PWD":/backup alpine tar czf /backup/ide-data.tgz -C /data .
-```
-
-## Important security boundary
-
-This release isolates users' files and credentials, but Python and pip still execute inside one backend container. Do not expose it to untrusted users without adding per-job containers or a sandbox, CPU/memory quotas, process limits, network egress policy, package allowlisting, and rate limiting.
+The worker is private, non-root, read-only, drops capabilities, limits memory/CPU/PIDs, and has execution timeouts. This is stronger isolation than running code in the API, but it is not a perfect hostile-code sandbox because the worker receives workspace access and pip has network access. For hostile public workloads, add disposable per-job containers/VMs, network egress policy, seccomp/AppArmor, package allowlists and rate limits.
